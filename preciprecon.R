@@ -1,12 +1,13 @@
 ##1/4 degree daily precip recon from jan 1 1951 to dec 31 2015
 #EOF data http://www.cpc.ncep.noaa.gov/products/janowiak/cmorph_description.html units mm/day
+#download at ftp://ftp.cpc.ncep.noaa.gov/precip/CMORPH_V1.0/CRT/0.25deg-DLY_00Z/
 #Obs data http://cdiac.ornl.gov/ftp/ushcn_daily/ units hundreths of inch/day
 
 
 
 #########STATION DATA##############
 library(ncdf4)
-dname='pobs'
+#dname='pobs'
 obs=nc_open('ushcn_prcp.nc')
 lon= ncvar_get(obs, 'LON')
 #length 1218
@@ -21,47 +22,34 @@ ll=cbind(lat,lon)
 statind=ncvar_get(obs,'STATION_INDEX')
 #length 44493371
 library(lubridate) 
-time=date_decimal(time,"%Y%m%d")
+time=date_decimal(time)
 sec=dseconds(1)
 time=time + sec
 time=format(time,"%Y%m%d")
 tp=cbind(statind,time,prcp)
-#tp=cbind(time,prcp)
+write.csv(tp,'tp.csv',row.names=F)
 
-#3rd station time ends 91764 at 2014.997
-time3=as.numeric(time[1:91764])
-prcp3=as.numeric(prcp[1:91764])
-stat3=as.numeric(statind[1:91764])
-tp3=cbind(stat3,time3,prcp3)
-x=split(tp3,rep(0:2,y))
-library(lubridate)
-samp=format(date_decimal(time3),"%Y%m%d")
-###convert original time vec to yyyymmdd
-time=format(date_decimal(time),"%Y%m%d")
-tp3=read.csv("tp3.csv")
-tp=read.csv('tp.csv',check.names=F)
+#must write out tp as csv, read back in, then use the read.zoo
+#write.csv(tp,'tp.csv',row.names=F)
+library(data.table)
+tp=fread('tp.csv',header=T,sep=',',stringsAsFactors=F)
 
 library(zoo)
-#must write out tp as csv and read with following command
-tp3test=read.zoo(tp3, split=1, index=2, format='%Y%m%d')
 prcpmat=read.zoo(tp, split=1, index=2, format= '%Y%m%d')
 prcpmat=t(prcpmat)
+#it is now station x time over the entire time, 1849-05-01 - 2014-12-31
+#we want 1895-01-01 - 2014-12-31
+grep('1895-01-01',colnames(prcpmat))
+#column 13490 is 1895-01-01
+prcpmat=prcpmat[,13490:57318]
+prcpmat=cbind(ll,prcpmat) #attach lat/lon for each station
+prcpmat=apply(prcpmat,2,FUN=as.numeric) #convert matrix to numeric
 
-prcp19512014=read.csv('prcp19512014.csv',check.names=FALSE)
-dim(prcp19512014) #1218 23377
-prcp19512014=cbind(lat,lon,prcp19512014[,2:23377])
-write.csv(prcp19512014,'obs19512014.csv',row.names=FALSE)
-obs=read.csv('obs19512014.csv',check.names=FALSE)
-#1218 23378
-
-gridobs=read.csv('gridobsraw.csv',check.names=F)
-# 1218 43832
-gridobs[,4:43832]=gridobs[,4:43832]/100*25.4
 
 ## stations active vs time
 c=c()
-for (i in 4:43832){
-  y=complete.cases(gridobs[,i])
+for (i in 3:43831){
+  y=complete.cases(prcpmat[,i])
   x=length(which(y))
   c=c(c,x)
 }
@@ -69,49 +57,48 @@ t=seq(as.Date("1895/01/01"),as.Date("2014/12/31"),length.out=43829)
 plot(t,c,type='l',xlab='Time',ylab='Active Stations',main='Active USHCN Stations 1895/01/01-2014/12/31')
 
 ## station monthly averages
-gridobs=read.csv('gridobsmm.csv',check.names=F)
-ojan=grep('-01-',colnames(gridobs))
-ofeb=grep('-02-',colnames(gridobs))
-omar=grep('-03-',colnames(gridobs))
-oapr=grep('-04-',colnames(gridobs))
-omay=grep('-05-',colnames(gridobs))
-ojun=grep('-06-',colnames(gridobs))
-ojul=grep('-07-',colnames(gridobs))
-oaug=grep('-08-',colnames(gridobs))
-osep=grep('-09-',colnames(gridobs))
-ooct=grep('-10-',colnames(gridobs))
-onov=grep('-11-',colnames(gridobs))
-odec=grep('-12-',colnames(gridobs))
+ojan=grep('-01-',colnames(prcpmat))
+ofeb=grep('-02-',colnames(prcpmat))
+omar=grep('-03-',colnames(prcpmat))
+oapr=grep('-04-',colnames(prcpmat))
+omay=grep('-05-',colnames(prcpmat))
+ojun=grep('-06-',colnames(prcpmat))
+ojul=grep('-07-',colnames(prcpmat))
+oaug=grep('-08-',colnames(prcpmat))
+osep=grep('-09-',colnames(prcpmat))
+ooct=grep('-10-',colnames(prcpmat))
+onov=grep('-11-',colnames(prcpmat))
+odec=grep('-12-',colnames(prcpmat))
 
-janrm=rowMeans(gridobs[,ojan],na.rm=T)
-febrm=rowMeans(gridobs[,ofeb],na.rm=T)
-marrm=rowMeans(gridobs[,omar],na.rm=T)
-aprrm=rowMeans(gridobs[,oapr],na.rm=T)
-mayrm=rowMeans(gridobs[,omay],na.rm=T)
-junrm=rowMeans(gridobs[,ojun],na.rm=T)
-julrm=rowMeans(gridobs[,ojul],na.rm=T)
-augrm=rowMeans(gridobs[,oaug],na.rm=T)
-seprm=rowMeans(gridobs[,osep],na.rm=T)
-octrm=rowMeans(gridobs[,ooct],na.rm=T)
-novrm=rowMeans(gridobs[,onov],na.rm=T)
-decrm=rowMeans(gridobs[,odec],na.rm=T)
+janrm=rowMeans(prcpmat[,ojan],na.rm=T)
+febrm=rowMeans(prcpmat[,ofeb],na.rm=T)
+marrm=rowMeans(prcpmat[,omar],na.rm=T)
+aprrm=rowMeans(prcpmat[,oapr],na.rm=T)
+mayrm=rowMeans(prcpmat[,omay],na.rm=T)
+junrm=rowMeans(prcpmat[,ojun],na.rm=T)
+julrm=rowMeans(prcpmat[,ojul],na.rm=T)
+augrm=rowMeans(prcpmat[,oaug],na.rm=T)
+seprm=rowMeans(prcpmat[,osep],na.rm=T)
+octrm=rowMeans(prcpmat[,ooct],na.rm=T)
+novrm=rowMeans(prcpmat[,onov],na.rm=T)
+decrm=rowMeans(prcpmat[,odec],na.rm=T)
 statmean=cbind(janrm,febrm,marrm,aprrm,mayrm,junrm,julrm,augrm,seprm,octrm,novrm,decrm)
 
-gridobs[,ojan]=gridobs[,ojan]-statmean[,1]
-gridobs[,ofeb]=gridobs[,ofeb]-statmean[,2]
-gridobs[,omar]=gridobs[,omar]-statmean[,3]
-gridobs[,oapr]=gridobs[,oapr]-statmean[,4]
-gridobs[,omay]=gridobs[,omay]-statmean[,5]
-gridobs[,ojun]=gridobs[,ojun]-statmean[,6]
-gridobs[,ojul]=gridobs[,ojul]-statmean[,7]
-gridobs[,oaug]=gridobs[,oaug]-statmean[,8]
-gridobs[,osep]=gridobs[,osep]-statmean[,9]
-gridobs[,ooct]=gridobs[,ooct]-statmean[,10]
-gridobs[,onov]=gridobs[,onov]-statmean[,11]
-gridobs[,odec]=gridobs[,odec]-statmean[,12]
+prcpmat[,ojan]=prcpmat[,ojan]-statmean[,1]
+prcpmat[,ofeb]=prcpmat[,ofeb]-statmean[,2]
+prcpmat[,omar]=prcpmat[,omar]-statmean[,3]
+prcpmat[,oapr]=prcpmat[,oapr]-statmean[,4]
+prcpmat[,omay]=prcpmat[,omay]-statmean[,5]
+prcpmat[,ojun]=prcpmat[,ojun]-statmean[,6]
+prcpmat[,ojul]=prcpmat[,ojul]-statmean[,7]
+prcpmat[,oaug]=prcpmat[,oaug]-statmean[,8]
+prcpmat[,osep]=prcpmat[,osep]-statmean[,9]
+prcpmat[,ooct]=prcpmat[,ooct]-statmean[,10]
+prcpmat[,onov]=prcpmat[,onov]-statmean[,11]
+prcpmat[,odec]=prcpmat[,odec]-statmean[,12]
 
-write.csv(gridobs,'anomgridobs.csv',row.names=F)
-gridobs=read.csv('anomgridobs.csv',check.names=F)
+write.csv(prcpmat,'anomobs.csv',row.names=F)
+anomobs=fread.csv('anomobs.csv',header=T,sep=',')
 
 
 #### MAP STATION DATA ####
@@ -119,53 +106,46 @@ gridobs=read.csv('anomgridobs.csv',check.names=F)
 
 library(ggplot2)
 library(ggmap)
-#sq_map <- get_map(location = sbbox, maptype = "satellite", source = "google")
-myLocation <- c(-133, 24, -60, 60)
-texas=c(-108, 25, -92, 37)
+
+myLocation <- c(-133, 24, -60, 60) #US bounds
+#texas=c(-108, 25, -92, 37)
 #lon-lat of lowerleft and lon-lat of upperright
 #maptype = c("terrain", "toner", "watercolor")
 #maptype = c("roadmap", "terrain", "satellite", "hybrid")
-myMap = get_map(location = myLocation, source="google", maptype="roadmap", crop=FALSE)
+myMap = get_map(location = myLocation, source="google", maptype="roadmap", crop=TRUE)
+#myMap = get_map(location = 'united states', zoom = 4, source = 'google', maptype="terrain")
 #ggmap(myMap)
 
-#ll=cbind.data.frame(cmorph[,1],cmorph[,2])
-#colnames(ll)=c('Lat','Lon')
-cll=read.csv('cll3.csv',check.names=FALSE)
-cll=data.frame(gridobsanom[,2:3])
-#cll[,2]=cll[,2]-360
-mmDay=gridobsanom$`2011-02-09`
-mmDay=cmanom$`2011-02-09`
+#cll=read.csv('cll3.csv',check.names=FALSE)
+cll=data.frame(gridded[,2:3])
+cll=data.frame(master[,1:2])
+colnames(cll)=c('Lat','Lon')
+
+mmDay=gridded$`2012-10-30`
+mmDay=master[,31]
+
 hi=max(mmDay,na.rm=T)
 lo=min(mmDay,na.rm=T)
 mid=(hi+lo)/2
 range(mmDay,na.rm=T) #adjust individually
-ggmap(myMap) + geom_point(data=cll, mapping=aes(x=cll$Lon, y=cll$Lat, colour=mmDay), size=1) +
+ggmap(myMap) + geom_point(data=cll, mapping=aes(x=cll$Lon, y=cll$Lat, colour=mmDay), size=1.5) +
   scale_colour_gradient2(limits=c(lo,hi),low="white",mid="blue", midpoint=mid, high = "red", space="rgb") #+ scale_x_continuous(limits=c(-125,-65))
 
 
 ############ CMORPH CREATION ################
-##CMORPH 1 day, csv generated in matlab
-cmorph0407=read.csv('CMORPH+MWCOMB_DAILY-025DEG_20170408.csv',header=FALSE,na.strings=c('NaN'))
-#dim(cmorph0407)
+#cmorph dim
 #1440 480
 lon=seq(0.125,360,0.25)
-lat=seq(59.875,-59.875,-0.25)
-#colnames(cmorph0407)=lat
-#rownames(cmorph0407)=lon
-cmorph0407=t(cmorph0407)
-#dim(cmorph0407)
-#480 1440  now lat x long
-cmvec=as.vector(cmorph0407)
-#length(cmvec)
-#691200
+lat=seq(-59.875,59.875,0.25)
+
 LAT=rep(lat,1440)
 LON=rep(lon,each=480)
-cm0407=cbind(LAT,LON,cmvec)
+cll=cbind(LAT,LON)
 
 ##mask
+#cmorph data is now oriented south to north
 landmask=read.table('UMD60mask0.25.asc')
 landmask=landmask[,3:5]
-for (i in 1:3){landmask[,i]=rev(landmask[,i])}
 mask=which(landmask[,1]<60&landmask[,1]>-60)
 landmask=landmask[mask,]
 landmask=landmask[order(landmask$V4),]
@@ -174,10 +154,9 @@ lon2=rep(lon2,each=480)
 landmask[1:345600,2]=lon2
 landmask=landmask[order(landmask$V4),]
 land=landmask[,3]
-#write.table(landmask,file="/Users/Scott/Desktop/sum proj/landmask.txt")
 #mask now matches cmorph format
 #add mask 
-cm0407=cbind(land,LAT,LON,cmvec)
+masksorted=cbind(land,LAT,LON)
 
 top = 49.3457868 # north lat
 left = 235.216 # west long
@@ -185,8 +164,7 @@ right = 293.049 # east long
 bottom =  24.7433195 # south lat
 
 #final mask is usland
-usland=which(cm0407[,1]==1&cm0407[,2]>bottom&cm0407[,2]<top&cm0407[,3]>left&cm0407[,3]<right)
-cmtemp=cm0407[usland,]
+usland=which(masksorted[,1]==1&masksorted[,2]>bottom&masksorted[,2]<top&masksorted[,3]>left&masksorted[,3]<right)
 
 ##master
 #LAT=rep(lat,1440)
@@ -194,13 +172,18 @@ cmtemp=cm0407[usland,]
 FLAT=LAT[usland]
 FLON=LON[usland]
 master=cbind(FLAT,FLON)
+master[,2]=master[,2]-360
 
-#file name vector
-files04=list.files('C:/Users/Scott/Desktop/sum proj/cmorph/2016')
-setwd("C:/Users/Scott/Desktop/sum proj/cmorph/2016")  
+
+
+#for each folder with cmorph data (can be any size you choose), change the "filenames" directory (make sure to do it chronologically)
+filenames=list.files('C:/Users/Scott/Desktop/Sam Stuff/cmorph/1998')
+#change the working directory to the same folder as above
+setwd("C:/Users/Scott/Desktop/Sam Stuff/cmorph/1998") 
+#do this until all cmorph data is read in (again, make sure to do all files in order)
 #function for each bin
-for (i in 1:365){
-  rawbin=readBin(files04[i],numeric(),endian='little',n=691200,size=4)
+for (i in 1:length(filenames)){
+  rawbin=readBin(filenames[i],numeric(),endian='little',n=691200,size=4)
   rawbin[rawbin==-999]=NA
   binvec=c(rawbin)
   binmat=matrix(binvec,nrow=1440,ncol=480)
@@ -210,54 +193,71 @@ for (i in 1:365){
   master=cbind(master,landvec)
 }
 
+#image(rotate(tbinmat),useRaster=T,axes=F,col=rainbow(20))
+
 ##missing date in 2014, 8/29
 
-write.csv(master,file='C:/Users/Scott/Desktop/sum proj/cmorph19982016.csv')
-testcsv=read.csv('C:/Users/Scott/Desktop/sum proj/cmorphcsv/CMORPH_V1.0_RAW_0.25deg-DLY_00Z_19980101.csv',header=FALSE,na.strings=c('NaN'))
+##remove mexico
+mxco=which(master[,1]<31.2&master[,2]<(-106))
+master=master[-mxco,]
+mxco=which(master[,1]<28.5&master[,2]<(-100.5))
+master=master[-mxco,]
+
+
+#write.csv(master,file='C:/Users/Scott/Desktop/sum proj/cmorph19982016.csv')
 
 #column names for master cmorph
-files98=list.files('C:/Users/Scott/Desktop/sum proj/cmorph/1998')
-files99=list.files('C:/Users/Scott/Desktop/sum proj/cmorph/1999')
-files00=list.files('C:/Users/Scott/Desktop/sum proj/cmorph/2000')
-files01=list.files('C:/Users/Scott/Desktop/sum proj/cmorph/2001')
-files02=list.files('C:/Users/Scott/Desktop/sum proj/cmorph/2002')
-files03=list.files('C:/Users/Scott/Desktop/sum proj/cmorph/2003')
-files04=list.files('C:/Users/Scott/Desktop/sum proj/cmorph/2004')
-files05=list.files('C:/Users/Scott/Desktop/sum proj/cmorph/2005')
-files06=list.files('C:/Users/Scott/Desktop/sum proj/cmorph/2006')
-files07=list.files('C:/Users/Scott/Desktop/sum proj/cmorph/2007')
-files08=list.files('C:/Users/Scott/Desktop/sum proj/cmorph/2008')
-files09=list.files('C:/Users/Scott/Desktop/sum proj/cmorph/2009')
-files10=list.files('C:/Users/Scott/Desktop/sum proj/cmorph/2010')
-files11=list.files('C:/Users/Scott/Desktop/sum proj/cmorph/2011')
-files12=list.files('C:/Users/Scott/Desktop/sum proj/cmorph/2012')
-files13=list.files('C:/Users/Scott/Desktop/sum proj/cmorph/2013')
-files14=list.files('C:/Users/Scott/Desktop/sum proj/cmorph/2014')
-files15=list.files('C:/Users/Scott/Desktop/sum proj/cmorph/2015')
-files16=list.files('C:/Users/Scott/Desktop/sum proj/cmorph/2016')
+#just use whatever folders contain all your cmorph data, in my case I had them by year
+files98=list.files('C:/Users/Scott/Desktop/Sam Stuff/cmorph/1998')
+files99=list.files('C:/Users/Scott/Desktop/Sam Stuff/cmorph/1999')
+files00=list.files('C:/Users/Scott/Desktop/Sam Stuff/cmorph/2000')
+files01=list.files('C:/Users/Scott/Desktop/Sam Stuff/cmorph/2001')
+files02=list.files('C:/Users/Scott/Desktop/Sam Stuff/cmorph/2002')
+files03=list.files('C:/Users/Scott/Desktop/Sam Stuff/cmorph/2003')
+files04=list.files('C:/Users/Scott/Desktop/Sam Stuff/cmorph/2004')
+files05=list.files('C:/Users/Scott/Desktop/Sam Stuff/cmorph/2005')
+files06=list.files('C:/Users/Scott/Desktop/Sam Stuff/cmorph/2006')
+files07=list.files('C:/Users/Scott/Desktop/Sam Stuff/cmorph/2007')
+files08=list.files('C:/Users/Scott/Desktop/Sam Stuff/cmorph/2008')
+files09=list.files('C:/Users/Scott/Desktop/Sam Stuff/cmorph/2009')
+files10=list.files('C:/Users/Scott/Desktop/Sam Stuff/cmorph/2010')
+files11=list.files('C:/Users/Scott/Desktop/Sam Stuff/cmorph/2011')
+files12=list.files('C:/Users/Scott/Desktop/Sam Stuff/cmorph/2012')
+files13=list.files('C:/Users/Scott/Desktop/Sam Stuff/cmorph/2013')
+files14=list.files('C:/Users/Scott/Desktop/Sam Stuff/cmorph/2014')
+files15=list.files('C:/Users/Scott/Desktop/Sam Stuff/cmorph/2015')
+files16=list.files('C:/Users/Scott/Desktop/Sam Stuff/cmorph/2016')
 namecol=c(files98,files99,files00,files01,files02,files03,files04,files05,files06,files07,files08,files09,files10,files11,files12,files13,files14,files15,files16)
 namevec=c()
-for (i in 1:6938){
+for (i in 1:length(namecol)){
   namevec=c(namevec,substr(namecol[i],33,40))
 }
-col=c("num","Lat","Lon")
+namevec=format(as.Date(namevec, format = "%Y%m%d"), "%Y-%m-%d")
+col=c("Lat","Lon")
 col=c(col,namevec)
-colnames(cmorph)=col
-write.csv(cmorph,file='C:/Users/Scott/Desktop/sum proj/cmorph19982016.csv')
+colnames(master)=col
+write.csv(master,file='C:/Users/Scott/Desktop/sum proj/cmorph19982014.csv')
 
-#### C MORPH ####
-cmorph=read.csv('C:/Users/Scott/Desktop/sum proj/cmorph.csv',header=TRUE,check.names=FALSE)
-dim(cmorph)
-#14802 6940
-cmorph=as.data.frame(cmorph)
-cll=read.csv('cll3.csv',check.names=FALSE)
-#cll[,2]=cll[,2]-360
 
 #### CMORPH ANOM ####
-cmorph=read.csv('C:/Users/Scott/Desktop/sum proj/cmorph.csv',header=TRUE,check.names=FALSE)
+#cmorph=fread.csv('C:/Users/Scott/Desktop/sum proj/cmorph19982014.csv',header=TRUE,sep=',')
 #only use through 2014
-cmorph=cmorph[,1:6210]
-#run cmorph monthly grep below
+cmorph=cmorph[,3:length(colnames(cmorph))] #leave out lat/lon
+#get all months by column position
+jan=grep('-01-',colnames(cmorph))
+feb=grep('-02-',colnames(cmorph))
+mar=grep('-03-',colnames(cmorph))
+apr=grep('-04-',colnames(cmorph))
+may=grep('-05-',colnames(cmorph))
+jun=grep('-06-',colnames(cmorph))
+jul=grep('-07-',colnames(cmorph))
+aug=grep('-08-',colnames(cmorph))
+sep=grep('-09-',colnames(cmorph))
+oct=grep('-10-',colnames(cmorph))
+nov=grep('-11-',colnames(cmorph))
+dec=grep('-12-',colnames(cmorph))
+
+
 janrm=rowMeans(cmorph[,jan],na.rm=T)
 febrm=rowMeans(cmorph[,feb],na.rm=T)
 marrm=rowMeans(cmorph[,mar],na.rm=T)
@@ -287,18 +287,9 @@ cmorph[,dec]=cmorph[,dec]-statmean[,12]
 
 
 write.csv(cmorph,'cmorphanom.csv',row.names=FALSE)
-cmanom=read.csv('anomcmorph.csv',check.names=FALSE) #about 5 min
 
-##remove mexico
-mxco=which(cll[,1]<31.2&cll[,2]<(-106))
-cmorph=cmorph[-mxco,]
-cll=cll[-mxco,]
-mxco=which(cll[,1]<28.5&cll[,2]<(-100.5))
-cmorph=cmorph[-mxco,]
-cll=cll[-mxco,]
-
-####month by month####
-cmorph=read.csv('C:/Users/Scott/Desktop/sum proj/anomcmorph.csv',header=TRUE,check.names=FALSE)
+####monthly SVD####
+cmorph=fread.csv('cmorphanom.csv',header=TRUE,sep=',')
 
 cmorph[is.na(cmorph)]=0
 #cll=read.csv('cll3.csv',check.names=FALSE)
@@ -316,7 +307,6 @@ oct=grep('-10-',colnames(cmorph))
 nov=grep('-11-',colnames(cmorph))
 dec=grep('-12-',colnames(cmorph))
 
-sum(deceig[1:20])/sum(deceig)
 
 jansvd=svd(cmorph[,jan])
 janeof=jansvd$u
@@ -379,32 +369,7 @@ for (i in 1:480){
 eigcum=eigcum*100
 colnames(eigcum)=c('Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec')
 
-#### SVD/EOF ####
-w=c()
-for (i in 3:6940){q=sum(is.na(cmorph[,i]))
-  w=c(w,q)}
-sum(w)
-cmorph[is.na(cmorph)]=0
-modsvd=svd(cmorph[,3:6940]) ##takes over 45 min!
-eof=modsvd$u
-eig=modsvd$d
-write.csv(eof,"cmorphEOF.csv",row.names=FALSE)
-write.csv(eig,'cmorpheig.csv',row.names=FALSE)
-eof=read.csv("cmorphEOF.csv", check.names = FALSE)
-dim(eof)
 
-eofsamp=eof[,2]
-write.csv(eofsamp,'eofsamp.csv',row.names=FALSE)
-eofsamp=read.csv('eofsamp.csv', check.names=FALSE)
-write.csv(eof[,2:1001],'first1000eof.csv',row.names=FALSE)
-eof1000=read.csv('first1000eof.csv',check.names=FALSE)
-
-##anom svd
-cmanom[is.na(cmanom)]=-1.78
-anomsvd=svd(cmanom[,3:6940])
-anomeof=anomsvd$u
-anom20eof=anomeof[,1:20]
-write.csv(anom20eof,'anom20eof.csv',row.names=FALSE)
 
 #### eig ####
 eig=read.csv('cmorpheig.csv',check.names=FALSE)
@@ -419,7 +384,7 @@ sum(eig[1:20])/sum(eig)
 #### MAP EOF ####
 eof=read.csv("new20.csv", check.names = FALSE) 
 #eof1000=read.csv('first1000eof.csv',check.names=FALSE)
-cll=read.csv('cll3.csv',check.names=FALSE)
+cll3=read.csv('cll3.csv',check.names=FALSE)
 #cll[,2]=cll[,2]-360
 rm(list=c("myMap"))
 library(ggplot2)
@@ -442,13 +407,12 @@ ggmap(myMap) + geom_point(data=cll, mapping=aes(x=Lon, y=Lat, colour=eofcol), si
 #5753
 
 #### GRIDDING ####
-obs=read.csv('obs19512014.csv',check.names=FALSE)
-#1218 23378
-cll=read.csv('cll3.csv',check.names=FALSE)
-#cll[,2]=cll[,2]-360
-#14802 2
+#sorry about the confusing variable names in this section, just run it all and it works
+#make sure you have the cmorph data read in correctly before this, as you will need the lat/lon from that
+#set the cmorph lat/lon as variable "cll"
+obs=fread('anomobs.csv',sep=',',header=T)
+#cll=read.csv('cll3.csv',check.names=FALSE)
 
-##grid points##
 
 iround <- function(x, interval){
   ## Round numbers to desired interval
@@ -462,10 +426,10 @@ iround <- function(x, interval){
   interval[ifelse(x < min(interval), 1, findInterval(x, interval))]
 }
 
-x=sort(cll$Lat)
-y=sort(cll$Lon)
-gridlat=iround(obs$lat, x)
-gridlon=iround(obs$lon, y)
+x=sort(cll[,1])
+y=sort(cll[,2])
+gridlat=iround(obs$lat, x) #round obs lat to nearest 0.25x0.25 lat
+gridlon=iround(obs$lon, y) #round obs lon to nearest 0.25x0.25 lon
 
 gridll=cbind(gridlat,gridlon)
 grid=c()
@@ -474,32 +438,67 @@ for (i in 1:14802){
   grid=c(grid,a)
   }
 gridb=c()
-for (i in 1:1208){
+for (i in 1:1218){
      b=which(cll[,1]==gridll[i,1]&cll[,2]==gridll[i,2])
     gridb=c(gridb,b)
 }
-gridb=c(gridb,rep(0,10))
 
 gridgrid=cbind(sort(grid),gridb)
 gridgrid=as.data.frame(gridgrid)
 colnames(gridgrid)=c('grid','gridb')
-#write.csv(mostgrids,'mostgrids.csv',row.names=FALSE)
-#mgrid=read.csv('mostgrids.csv',check.names = FALSE)
-  
 
 g=rep(0,1218)
 gridded=cbind(g,obs)
 gridded[gridgrid$grid,1]=gridgrid$gridb
 colnames(gridded)[1]=c("grid")
-#manually wrote in remaining ~40 grids
-write.csv(gridded,'griddedobsNEW.csv',row.names=FALSE)
-gridobs=read.csv('griddedobs.csv',check.names=FALSE)
+
+#40 grids missing
+missing=which(gridded[,1]==0)
+
+#this loop will find the nearest grid point for the ungridded obs
+#it takes a few minutes
+
+nearest=c()
+for (i in 1:length(missing)){ 
+  m=c()
+  for (j in 1:14802){
+    dif=abs(cll[j,1]-gridll[missing[i],1]) + abs(cll[j,2]-gridll[missing[i],2])
+    m=c(m,dif)
+  }
+  nearest=c(nearest,which.min(m))
+}
+
+#add in the newly gridded points
+gridded[missing,1]=nearest
+
+#now must deal with overlapping stations
+#this loop finds duplicate grid points, averages those rows into a new row, removes the old rows
+#and adds the new average row
+notuni=which(duplicated(gridded$grid))
+uninotuni=which(!duplicated(gridded[notuni,1]))
+nu=notuni[uninotuni]
+while (length(nu)!=0){
+  
+  same=which(gridded[,1]==as.numeric(gridded[nu[1],1]))
+  rows=gridded[same,]
+  newrow=as.matrix(colMeans(rows,na.rm=T))
+  tnr=t(newrow)
+  gridded=gridded[-same,]
+  gridded=rbind(gridded,tnr)
+  
+  notuni=which(duplicated(gridded$grid))
+  uninotuni=which(!duplicated(gridded[notuni,1]))
+  nu=notuni[uninotuni]
+}
+
+
 
 #change units from .01s/inch/day to mm/day
-gridobs[,4:23379]=gridobs[,4:23379]/100
-gridobs[,4:23379]=gridobs[,4:23379]*25.4
-range(gridobs[,4:23379],na.rm=TRUE)
-#0.000 2286.508
+gridded[,4:43832]=gridded[,4:43832]*(25.4/100) #1/100s inches to inches
+range(gridded[,4:43832],na.rm=TRUE)
+#-22.95022 2406.63876
+
+write.csv(gridded,'anomobsgrid2.csv',row.names=FALSE)
 
 #### RECON ####
 #obs in 4 chunks, need gridll for last 3
